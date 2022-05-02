@@ -3,6 +3,7 @@ from tkinter import messagebox
 from random import choice,randint,shuffle
 from urllib.parse import urlparse
 import pyperclip
+import json
 
 # ---------------------------- PASSWORD GENERATOR ------------------------------- #
 
@@ -27,6 +28,12 @@ def save_password():
     email = email_entry.get()
     website = web_entry.get()
     password = pass_entry.get()
+    new_data = {
+        website: {
+            "email": email,
+            "password": password
+        }
+    }
 
     # Checks for empty input fields, and notify user if there are
     parsed_url = urlparse(website).netloc
@@ -43,16 +50,53 @@ def save_password():
             web_entry.delete(0, END)
             pass_entry.delete(0, END)
     else:
-        yes_click = messagebox.askyesno(title=website, message=f"Would you like to save the following informtion for {f_url}?\n\nEmail: {email}\nPassword: {password}")
-        if yes_click:
-            with open("data.txt", mode="a") as data_file:
-                data_file.write(f"{website.upper()}\nUSERNAME| {email}\nPASSWORD| {password}\n\n")
-                web_entry.delete(0, END)
-                pass_entry.delete(0, END)
-                web_entry.focus()
-                window.clipboard_clear()
-                pyperclip.copy(password)
+        # read from data.json file if it exists
+        try: 
+            with open("data.json", mode="r") as data_file:
+                data = json.load(data_file)
 
+        # create data.json if it has not been created 
+        except FileNotFoundError:
+            with open("data.json", mode="w") as data_file:
+                json.dump(new_data, data_file, indent=4)
+
+        # Else, data.json exists and we update it with a new_data item (runs if no issues)
+        else:
+            # Updating old data with new data
+            data.update(new_data)
+
+            with open("data.json", mode="w") as data_file:
+
+                # Saving updated data   
+                json.dump(data, data_file, indent = 4)
+    
+        # After everything, we reset the entries (runs if fails or succeeds)
+        finally:
+            web_entry.delete(0, END)
+            pass_entry.delete(0, END)
+            web_entry.focus()
+            window.clipboard_clear()
+            pyperclip.copy(password)
+
+# ---------------------------- SEARCH SAVED PASSWORDS ------------------------------- #
+def search():
+    website = web_entry.get()
+
+    # gets key from json using website name
+    # returns pop-up message w email and pass
+    try:
+        with open("data.json", mode="r") as data_file:
+            data = json.load(data_file)
+    except FileNotFoundError:
+        messagebox.askokcancel(message = "No details found for your website search.")
+    else:   
+        if website in data.keys():
+            user = data[web_entry.get()]["email"]
+            pswd = data[web_entry.get()]["password"]
+            messagebox.askokcancel(title=website, message = f"User: {user}\nPass: {pswd}")
+        else:
+            messagebox.askokcancel(message = "No details found for your website search.")
+                
 # ---------------------------- UI SETUP ------------------------------- #
 
 window = Tk()
@@ -83,12 +127,12 @@ email_label.grid(column=0,row=2)
 pass_label.grid(column=0,row=3)
 
 # Entries
-web_entry = Entry(width=37,highlightbackground="white")
+web_entry = Entry(width=22,highlightbackground="white")
 web_entry.focus()
 email_entry = Entry(width=37,highlightbackground="white")
 email_entry.insert(END, 'example@domain.com')
 pass_entry = Entry(width=22,highlightbackground="white")
-web_entry.grid(column=1,row=1,columnspan=2)
+web_entry.grid(column=1,row=1)
 email_entry.grid(column=1,row=2, columnspan=2)
 pass_entry.grid(column=1,row=3)
 
@@ -97,5 +141,7 @@ gen_pass_button = Button(text="Generate Password", highlightbackground="white",w
 gen_pass_button.grid(column=2,row=3)
 add_button = Button(text="add", width=34, highlightbackground="white",command=save_password)
 add_button.grid(column=1,row=4,columnspan=2)
+search_button = Button(text="Search", highlightbackground="white",width=11,command=search)
+search_button.grid(column=2,row=1)
 
 window.mainloop()
